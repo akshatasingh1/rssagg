@@ -88,6 +88,7 @@ type Post struct {
 	PublishedAt time.Time      `json:"published_at"`
 	Url         string         `json:"url"`
 	FeedID      uuid.UUID      `json:"feed_id"`
+	Summary     *string        `json:"summary"`
 }
 
 func databasePostToPost(dbPost database.Post) Post {
@@ -95,6 +96,11 @@ func databasePostToPost(dbPost database.Post) Post {
 	if dbPost.Description.Valid {
 		description = &dbPost.Description.String
 	}
+
+	var summary *string
+    if dbPost.Summary.Valid {
+        summary = &dbPost.Summary.String
+    }
 
 	return Post{
 		ID:          dbPost.ID,
@@ -105,6 +111,7 @@ func databasePostToPost(dbPost database.Post) Post {
 		PublishedAt: dbPost.PublishedAt,
 		Url:         dbPost.Url,
 		FeedID:      dbPost.FeedID,
+		Summary:     summary,
 	}
 
 }

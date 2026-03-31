@@ -14,10 +14,12 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"time"
+	"github.com/redis/go-redis/v9"
 )
 
 type apiConfig struct {
 	DB *database.Queries
+	RedisClient *redis.Client
 }
 
 func main() {
@@ -39,11 +41,20 @@ func main() {
 
 	db:= database.New(conn)
 
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // No password for local Docker setup
+		DB:       0,  // Use default database
+	})
+
+
 	apiCfg := apiConfig{
 		DB: db,
+		RedisClient: redisClient,
 	}
 
 	go startScraping(db, 10, time.Minute)
+	go startAIWorker(db, 15*time.Second)
 
 	router := chi.NewRouter()
 
@@ -64,7 +75,8 @@ func main() {
 	v1Router.Get("/users", apiCfg.middlewareAuth(apiCfg.handlerGetUser))
 	v1Router.Post("/feeds", apiCfg.middlewareAuth(apiCfg.handlerCreateFeed))
 	v1Router.Get("/feeds", apiCfg.handlerGetFeeds)
-	v1Router.Get("/posts", apiCfg.middlewareAuth(apiCfg.handlerGetPostsForUser))
+	v1Router.Get("/posts", apiCfg.middlewareAuth(apiCfg.handlerGetPostsForUser))	
+	v1Router.Get("/posts/search", apiCfg.middlewareAuth(apiCfg.handlerSearchPosts))
 	v1Router.Post("/feed_follows", apiCfg.middlewareAuth(apiCfg.handlerCreateFeedFollow))
 	v1Router.Get("/feed_follows", apiCfg.middlewareAuth(apiCfg.handlerGetFeedFollows))
 	v1Router.Delete("/feed_follows/{feedFollowID}", apiCfg.middlewareAuth(apiCfg.handlerDeleteFeedFollow))
