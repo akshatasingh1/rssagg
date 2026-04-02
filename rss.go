@@ -24,6 +24,7 @@ type RSSFeed struct {
 type RSSItem struct {
 	Title       string `xml:"title"`
 	Link        string `xml:"link"`
+	GUID        string `xml:"guid"`
 	Description string `xml:"description"`
 	PubDate     string `xml:"pubDate"`
 }

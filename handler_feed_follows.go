@@ -53,15 +53,17 @@ func (apiCfg *apiConfig) handlerGetFeedFollows(w http.ResponseWriter, r *http.Re
 }
 
 func (apiCfg *apiConfig) handlerDeleteFeedFollow(w http.ResponseWriter, r *http.Request, user database.User) {
-	feedFollowIDStr := chi.URLParam(r, "feedFollowID")
-	feedFollowID, err := uuid.Parse(feedFollowIDStr)
+	// 1. Read 'feedID' from the URL parameter
+	feedIDStr := chi.URLParam(r, "feedID")
+	feedID, err := uuid.Parse(feedIDStr)
 	if err != nil {
-		respondWithError(w, 400, fmt.Sprintf("Could not parse feed follow ID: %v", err))
+		respondWithError(w, 400, fmt.Sprintf("Could not parse feed ID: %v", err))
 		return
 	}
 
-	err = apiCfg.DB.DeleteFeedFollow(r.Context(), database.DeleteFeedFollowParams{
-		ID:     feedFollowID,
+	// 2. Use the new SQL function to delete by FeedID
+	err = apiCfg.DB.DeleteFeedFollowByFeedId(r.Context(), database.DeleteFeedFollowByFeedIdParams{
+		FeedID: feedID,
 		UserID: user.ID,
 	})
 	if err != nil {
@@ -69,5 +71,10 @@ func (apiCfg *apiConfig) handlerDeleteFeedFollow(w http.ResponseWriter, r *http.
 		return
 	}
 
-	respondWithJSON(w, 200, struct {}{})
+	// 3. CACHE INVALIDATION: Nuke the stale dashboard cache!
+	// This forces React to fetch a fresh, empty list on the next load.
+	cacheKey := fmt.Sprintf("posts:user:%s:page:1:v2", user.ID.String())
+	apiCfg.RedisClient.Del(r.Context(), cacheKey)
+
+	respondWithJSON(w, 200, struct{}{})
 }

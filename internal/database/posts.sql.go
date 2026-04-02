@@ -26,6 +26,7 @@ INSERT INTO posts (
     summary
     )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (url) DO NOTHING
 RETURNING id, created_at, updated_at, title, description, published_at, url, feed_id, summary
 `
 
@@ -97,16 +98,17 @@ SELECT posts.id, posts.created_at, posts.updated_at, posts.title, posts.descript
 join feed_follows on posts.feed_id = feed_follows.feed_id
 WHERE feed_follows.user_id = $1
 ORDER BY posts.published_at DESC
-LIMIT $2
+LIMIT $2 OFFSET $3
 `
 
 type GetPostsForUserParams struct {
 	UserID uuid.UUID
 	Limit  int32
+	Offset int32
 }
 
 func (q *Queries) GetPostsForUser(ctx context.Context, arg GetPostsForUserParams) ([]Post, error) {
-	rows, err := q.db.QueryContext(ctx, getPostsForUser, arg.UserID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, getPostsForUser, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

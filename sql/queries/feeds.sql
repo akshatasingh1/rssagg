@@ -20,3 +20,6 @@ SET last_fetched_at = NOW(),
 WHERE id = $1
 RETURNING *;
 
+-- name: GetFeedByURL :one
+SELECT * FROM feeds WHERE url = $1;
+
