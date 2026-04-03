@@ -65,6 +65,7 @@ A web application for aggregating and managing RSS feeds, built with a Go backen
    PORT=8080
    DB_URL=postgres://username:password@localhost:5432/rssagg?sslmode=disable
    REDIS_URL=redis://localhost:6379
+   GEMINI_API_KEY=your_gemini_api_key_here
    ```
 
 6. Start PostgreSQL and Redis servers (if not using Docker Compose):
