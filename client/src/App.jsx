@@ -1,6 +1,7 @@
 import { fetchPosts, searchPosts, fetchFeeds, fetchFeedFollows, unfollowFeed } from './api';
 import React, { useState, useEffect } from 'react';
 import AddFeedModal from './AddFeedModal';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/v1';
 
 // --- NEW COMPONENT: The Login / Sign Up Screen ---
 const LoginScreen = ({ onLogin }) => {
@@ -26,7 +27,7 @@ const LoginScreen = ({ onLogin }) => {
         return;
       }
       try {
-        const response = await fetch('http://localhost:8080/v1/users', {
+        const response = await fetch(`${API_BASE_URL}/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: inputValue.trim() })
