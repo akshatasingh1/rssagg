@@ -23,7 +23,7 @@ A web application for aggregating and managing RSS feeds, built with a Go backen
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.26.1+
 - Node.js 18+
 - PostgreSQL
 - Redis
@@ -41,21 +41,35 @@ A web application for aggregating and managing RSS feeds, built with a Go backen
    go mod download
    ```
 
-3. Set up the database:
-   - Create a PostgreSQL database
-   - Run the migrations:
+3. Generate database code:
+   ```bash
+   sqlc generate
+   ```
+
+4. Set up the database:
+   - Create a PostgreSQL database named `rssagg`
+   - Apply the database schema. For production-level setup, consider using a migration tool like [Goose](https://github.com/pressly/goose) or [golang-migrate](https://github.com/golang-migrate/migrate). If using Goose:
      ```bash
-     sqlc generate
+     go install github.com/pressly/goose/v3/cmd/goose@latest
+     cd sql/schema
+     goose postgres "postgres://username:password@localhost:5432/rssagg?sslmode=disable" up
+     ```
+     Otherwise, run the SQL files manually in order (001_users.sql through 009_feed_http_headers.sql). For example, using psql:
+     ```bash
+     psql -U username -d rssagg -f sql/schema/001_users.sql
+     # Repeat for each file
      ```
 
-4. Create a `.env` file in the root directory:
+5. Create a `.env` file in the root directory (replace `username` and `password` with your actual PostgreSQL credentials):
    ```
    PORT=8080
    DB_URL=postgres://username:password@localhost:5432/rssagg?sslmode=disable
+   REDIS_URL=redis://localhost:6379
    ```
 
-5. Start Redis server (if using Docker):
+6. Start PostgreSQL and Redis servers (if not using Docker Compose):
    ```bash
+   docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=username -e POSTGRES_DB=rssagg postgres:alpine
    docker run -d -p 6379:6379 redis:alpine
    ```
 
@@ -66,12 +80,17 @@ A web application for aggregating and managing RSS feeds, built with a Go backen
    cd client
    ```
 
-2. Install dependencies:
+2. Create a `.env.local` file to configure the API base URL:
+   ```
+   VITE_API_BASE_URL=http://localhost:8080/v1
+   ```
+
+3. Install dependencies:
    ```bash
    npm install
    ```
 
-3. Start the development server:
+4. Start the development server:
    ```bash
    npm run dev
    ```
@@ -86,6 +105,43 @@ A web application for aggregating and managing RSS feeds, built with a Go backen
 2. The API will be available at `http://localhost:8080`
 
 3. The frontend will be available at `http://localhost:5173` (default Vite port)
+
+## Docker
+
+The project includes a multi-stage `Dockerfile` and `docker-compose.yml` for local development:
+
+- Builds Go app in `golang:1.26-alpine`
+- Copies compiled binary into tiny `alpine:latest`
+- Exposes port `8080`
+- Launches PostgreSQL in `db` service and Redis in `redis` service
+
+### Run with Docker Compose
+
+From project root:
+
+```bash
+# build and start services
+docker compose up --build -d
+
+# check logs
+docker compose logs -f api
+```
+
+### Environment
+
+The Compose service sets:
+
+- `PORT=8080`
+- `DB_URL=postgres://username:password@db:5432/rssagg?sslmode=disable`
+- `REDIS_URL=redis://redis:6379`
+
+If you want local non-Docker run, set `.env` accordingly:
+
+```env
+PORT=8080
+DB_URL=postgres://username:password@localhost:5432/rssagg?sslmode=disable
+REDIS_URL=redis://localhost:6379
+```
 
 ## API Endpoints
 
