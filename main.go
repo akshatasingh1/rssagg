@@ -41,11 +41,17 @@ func main() {
 
 	db:= database.New(conn)
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // No password for local Docker setup
-		DB:       0,  // Use default database
-	})
+	redisURL := os.Getenv("REDIS_URL")
+if redisURL == "" {
+    log.Fatal("REDIS_URL environment variable is not set")
+}
+
+opt, err := redis.ParseURL(redisURL)
+if err != nil {
+    log.Fatal("Failed to parse REDIS_URL: ", err)
+}
+
+redisClient := redis.NewClient(opt)
 
 
 	apiCfg := apiConfig{
