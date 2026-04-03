@@ -1,5 +1,7 @@
 // client/src/api.js
-const API_BASE_URL = 'http://localhost:8080/v1';
+// This tells React: "Use the Vercel link if we are live on the internet, 
+// but if we are just testing on my laptop, default back to localhost!"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/v1';
 
 // 1. DELETE the hardcoded API_KEY variable completely!
 
