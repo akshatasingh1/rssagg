@@ -1,20 +1,25 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	"strconv"
 	"github.com/akshatasingh1/rssagg/internal/database"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (apiCfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	decoder := json.NewDecoder(r.Body)
 
@@ -25,19 +30,74 @@ func (apiCfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	params.Email = strings.TrimSpace(strings.ToLower(params.Email))
+	if params.Name == "" || params.Email == "" || len(params.Password) < 8 {
+		respondWithError(w, 400, "name, email, and a password of at least 8 characters are required")
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.DefaultCost)
+	if err != nil {
+		respondWithError(w, 500, "Failed to hash password")
+		return
+	}
+
 	user, err := apiCfg.DB.CreateUser(r.Context(), database.CreateUserParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-		Name:      params.Name,
+		ID:           uuid.New(),
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+		Name:         params.Name,
+		Email:        sql.NullString{String: params.Email, Valid: true},
+		PasswordHash: sql.NullString{String: string(hashedPassword), Valid: true},
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "duplicate key") {
+			respondWithError(w, 409, "An account with this email already exists")
+			return
+		}
 		respondWithError(w, 400, fmt.Sprintf("Failed to create user: %v", err))
 		return
 	}
 
 	respondWithJSON(w, 201, databaseUsertoUser(user))
 	log.Printf("User created with ID: %v", user.ID)
+}
+
+func (apiCfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	decoder := json.NewDecoder(r.Body)
+
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 400, fmt.Sprintf("Error parsing JSON: %v", err))
+		return
+	}
+
+	params.Email = strings.TrimSpace(strings.ToLower(params.Email))
+
+	user, err := apiCfg.DB.GetUserByEmail(r.Context(), sql.NullString{String: params.Email, Valid: true})
+	if err != nil {
+		respondWithError(w, 401, "Invalid email or password")
+		return
+	}
+
+	if !user.PasswordHash.Valid {
+		respondWithError(w, 401, "Invalid email or password")
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(params.Password))
+	if err != nil {
+		respondWithError(w, 401, "Invalid email or password")
+		return
+	}
+
+	respondWithJSON(w, 200, databaseUsertoUser(user))
+	log.Printf("User logged in: %v", user.ID)
 }
 
 func (apiCfg *apiConfig) handlerGetUser(w http.ResponseWriter, r *http.Request, user database.User) {

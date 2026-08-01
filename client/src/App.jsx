@@ -3,44 +3,59 @@ import React, { useState, useEffect } from 'react';
 import AddFeedModal from './AddFeedModal';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/v1';
 
-// --- NEW COMPONENT: The Login / Sign Up Screen ---
+// --- Login / Sign Up Screen (email + password) ---
 const LoginScreen = ({ onLogin }) => {
   const [isLoginMode, setIsLoginMode] = useState(true);
-  const [inputValue, setInputValue] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (isLoginMode) {
-      // LOG IN: Just save the pasted API key
-      if (inputValue.trim().length < 10) {
-        setError('Please enter a valid API key.');
+    if (!email.trim() || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+    if (!isLoginMode) {
+      if (!name.trim()) {
+        setError('Please enter your name.');
         return;
       }
-      onLogin(inputValue.trim());
-    } else {
-      // SIGN UP: Hit the Go backend to create a new user
-      if (inputValue.trim().length < 2) {
-        setError('Please enter a valid name.');
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters.');
         return;
       }
-      try {
-        const response = await fetch(`${API_BASE_URL}/users`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: inputValue.trim() })
-        });
-        
-        if (!response.ok) throw new Error('Failed to create account');
-        
-        const data = await response.json();
-        // The backend returns the new user object, which includes their new API key!
-        onLogin(data.api_key); 
-      } catch (err) {
-        setError('Could not create account. Is the server running?');
+    }
+
+    setIsSubmitting(true);
+    try {
+      const endpoint = isLoginMode ? 'login' : 'users';
+      const body = isLoginMode
+        ? { email: email.trim(), password }
+        : { name: name.trim(), email: email.trim(), password };
+
+      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || (isLoginMode ? 'Invalid email or password' : 'Failed to create account'));
       }
+
+      // The backend returns the user object, which includes their API key
+      onLogin(data.api_key);
+    } catch (err) {
+      setError(err.message || 'Could not connect to the server.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -50,35 +65,61 @@ const LoginScreen = ({ onLogin }) => {
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 mb-6 text-center">
           Welcome to CoreDigest
         </h1>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLoginMode && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. John Doe"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-100"
+              />
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              {isLoginMode ? 'Enter your API Key' : 'Enter your Name'}
-            </label>
-            <input 
-              type="text" 
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={isLoginMode ? "Paste your 64-character key..." : "e.g. John Doe"}
+            <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-100"
             />
           </div>
-          
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={isLoginMode ? "Enter your password" : "At least 8 characters"}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-100"
+            />
+          </div>
+
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-          
-          <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition-colors">
-            {isLoginMode ? 'Access Dashboard' : 'Generate API Key'}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-colors"
+          >
+            {isSubmitting ? 'Please wait...' : (isLoginMode ? 'Log In' : 'Sign Up')}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          {isLoginMode ? "Don't have an account? " : "Already have a key? "}
-          <button 
-            onClick={() => { setIsLoginMode(!isLoginMode); setInputValue(''); setError(''); }}
+          {isLoginMode ? "Don't have an account? " : "Already have an account? "}
+          <button
+            onClick={() => { setIsLoginMode(!isLoginMode); setError(''); }}
             className="text-emerald-400 hover:underline focus:outline-none"
           >
-            {isLoginMode ? "Create one" : "Log in"}
+            {isLoginMode ? "Sign up" : "Log in"}
           </button>
         </div>
       </div>

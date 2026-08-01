@@ -54,7 +54,7 @@ A web application for aggregating and managing RSS feeds, built with a Go backen
      cd sql/schema
      goose postgres "postgres://username:password@localhost:5432/rssagg?sslmode=disable" up
      ```
-     Otherwise, run the SQL files manually in order (001_users.sql through 009_feed_http_headers.sql). For example, using psql:
+     Otherwise, run the SQL files manually in order (001_users.sql through 010_users_email_password.sql). For example, using psql:
      ```bash
      psql -U username -d rssagg -f sql/schema/001_users.sql
      # Repeat for each file
@@ -98,9 +98,9 @@ A web application for aggregating and managing RSS feeds, built with a Go backen
 
 ## Usage
 
-1. Start the backend server:
+1. Start the backend server (note: `go run .`, not `go run main.go` — the package spans multiple files):
    ```bash
-   go run main.go
+   go run .
    ```
 
 2. The API will be available at `http://localhost:8080`
@@ -147,7 +147,8 @@ REDIS_URL=redis://localhost:6379
 ## API Endpoints
 
 - `GET /v1/healthz` - Health check
-- `POST /v1/users` - Create user
+- `POST /v1/users` - Sign up (requires `name`, `email`, `password`; returns the account's API key)
+- `POST /v1/login` - Log in with `email` + `password` (returns the account's API key)
 - `GET /v1/feeds` - Get feeds
 - `POST /v1/feeds` - Create feed
 - And more... (see handlers for full list)
